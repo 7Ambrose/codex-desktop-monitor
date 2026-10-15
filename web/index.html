@@ -1,22 +1,36 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>任务监控</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/managed.css"></head>
-<body>
-<main>
-  <header><div><div class="eyebrow">CODEX · LOCAL MONITOR</div><h1>codex监控</h1><p class="subtitle">继续用桌面端聊天。这里记录进展，并把需要你决定的事提出来。</p></div><div class="live" id="connection">正在连接</div></header>
-  <section class="notice" id="capability">无需逐个复核：连续报错、长时间没进展会自动提醒。“检查结果质量”是额外的 GPT 检查。现有桌面对话请在原聊天里停止或继续；本页可拦住下一步操作。</section>
-  <section class="metrics"><article><span>运行中</span><strong id="active">—</strong></article><article><span>需要处理</span><strong id="attention">—</strong></article><article><span>独立复核</span><strong class="small" id="review-state">—</strong></article><article><span>本地 CPU</span><strong class="small" id="cpu">测量中</strong></article></section>
-  <section class="workspace"><h2>交给 Codex 做</h2><p class="subtitle">在这里发起的任务，可以在本页中断、继续。沿用官方登录，实际执行会消耗模型用量。</p>
-    <form id="managed-form"><label>工作文件夹<input id="managed-cwd" required placeholder="例如 D:\Codex\我的项目"></label>
-      <div class="compose-options"><label>模型<select id="managed-model"><option value="">跟随 Codex 当前设置</option><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-luna">GPT-6 Luna</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6-luna">GPT-5.6 Luna</option></select></label><label>思考强度<select id="managed-effort"><option value="low">低</option><option value="medium" selected>中</option><option value="high">高</option></select></label><label>文件操作<select id="managed-mode"><option value="workspace-write">允许修改工作文件夹</option><option value="read-only">仅查看，不修改</option></select></label></div>
-      <label>要做什么<textarea id="managed-prompt" required maxlength="24000" rows="4" placeholder="像聊天一样描述你的任务……"></textarea></label><button id="managed-submit" class="primary" type="submit">开始任务</button><span id="managed-feedback" role="status"></span>
-    </form><p class="meta">默认关闭联网。需要审批的命令和文件操作会在下方显示，由你决定。中断不会撤销已完成的修改。请在本页继续同一任务，避免多处同时续跑。</p>
-  </section><section id="managed-section" hidden><div class="section-head"><h2>面板任务 · 可以中断和继续</h2></div><div id="managed-tasks" class="tasks"></div></section>
-  <section id="notice-section" hidden><div class="section-head"><h2>提醒中心</h2><span>本地规则 · 无额外模型用量</span></div><div id="notices" class="tasks"></div></section>
-  <section class="section-head"><h2>你的任务</h2><span id="coverage"></span></section>
-  <div class="empty" id="empty"><div class="empty-icon">◎</div><h2>等待任务接入</h2><p>后台服务已经打开。完成钩子信任并开始一条新任务后，记录会出现在这里。</p><p class="muted">没有记录不等于任务运行正常，也可能是监控尚未接入。</p></div>
-  <section id="tasks" class="tasks"></section>
-  <section id="detail" class="detail" hidden><div class="section-head"><h2>任务进展与问题</h2><button id="close-detail" class="quiet">收起</button></div><div id="detail-content"></div></section>
-  <footer><span>数据保存在这台电脑 · 日志默认保留 7 天</span><span id="updated"></span></footer>
-</main><div id="toast" role="status" hidden></div><script src="/managed.js"></script><script src="/app.js"></script>
-</body></html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Codex 监控</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/managed.css"></head>
+<body><main class="app-shell">
+<aside class="sidebar">
+  <div class="brand"><span class="brand-mark">⌘</span><h1>codex监控</h1></div>
+  <button id="new-task" class="new-task" type="button">＋ 新任务</button>
+  <button id="monitor-toggle" class="monitor-toggle" type="button" aria-expanded="false" aria-controls="monitor-options">监控与提醒</button>
+  <div class="nav-heading">最近任务</div><nav id="managed-nav" aria-label="任务列表"></nav>
+  <div class="sidebar-bottom" id="monitor-options">
+    <details class="auxiliary"><summary>提醒中心 <span id="attention">0</span></summary><section id="notice-section" hidden><div id="notices"></div></section><p class="meta">报错和长时间无进展会自动提醒。</p></details>
+    <details class="auxiliary"><summary>桌面对话监控</summary><span id="coverage"></span><div class="empty" id="empty"><p>暂未收到桌面对话事件。</p></div><section id="tasks"></section></details>
+    <details class="auxiliary"><summary>监控设置与说明</summary><p id="capability"></p><p>CLI 回答需要连接 OpenAI。任务内命令能否访问外网，是另一项独立权限；当前默认限制命令联网。</p><p>中断不会撤销已完成的修改。桌面里已有的对话仍需回原窗口停止或继续。</p><div class="small-stats"><span>运行 <b id="active">0</b></span><span>复核 <b id="review-state">省用量</b></span><span>后台 <b id="cpu">测量中</b></span></div></details>
+    <div class="local-note">本机保存 · 日志保留 7 天</div>
+  </div>
+</aside>
+<div class="main-pane">
+  <header class="chat-header"><div><h2 id="chat-title">新任务</h2><span id="chat-caption">选择文件夹，然后描述要做的事</span></div><div class="live" id="connection">正在连接</div></header>
+  <section class="conversation" id="conversation">
+    <div id="managed-welcome" class="welcome"><div class="welcome-mark">⌘</div><h2>有什么要交给 Codex？</h2><p>改代码、查问题，或接着完成手边的任务。</p></div>
+    <section id="managed-section" hidden><div id="managed-tasks"></div></section>
+    <section id="detail" class="detail" hidden><div class="section-head"><h2>进展与问题</h2><button id="close-detail" class="quiet" type="button">收起</button></div><div id="detail-content"></div></section>
+  </section>
+  <section class="workspace">
+    <form id="managed-form">
+      <div class="folder-row"><label for="managed-cwd">工作文件夹</label><input id="managed-cwd" required aria-label="工作文件夹" placeholder="D:\Codex\我的项目"></div>
+      <details class="advanced-options"><summary>模型与权限 <span id="composer-config-label">当前设置 · 中等思考</span></summary><div class="compose-options">
+        <label>模型<select id="managed-model"><option value="">跟随 Codex 当前设置</option><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-luna">GPT-6 Luna</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6-luna">GPT-5.6 Luna</option></select></label>
+        <label>思考强度<select id="managed-effort"><option value="low">低</option><option value="medium" selected>中</option><option value="high">高</option></select></label>
+        <label>文件权限<select id="managed-mode"><option value="workspace-write">允许修改此文件夹</option><option value="read-only">只读，不修改</option></select></label>
+      </div><p class="meta">这些设置用于新任务。命令联网受限，不影响 CLI 连接 OpenAI。</p></details>
+      <div class="input-box"><textarea id="managed-prompt" maxlength="24000" rows="3" aria-label="任务内容" placeholder="描述任务，或粘贴报错……"></textarea><div class="composer-bottom"><span id="managed-feedback" role="status">沿用 Codex 登录</span><button id="managed-submit" type="submit">发送 <span aria-hidden="true">↑</span></button></div></div>
+    </form><div class="composer-note"><span>任务在后台运行，需要确认时会提醒你。</span><span id="updated"></span></div>
+  </section>
+</div>
+</main><div id="toast" role="status" hidden></div><script src="/managed.js"></script><script src="/app.js"></script></body></html>
