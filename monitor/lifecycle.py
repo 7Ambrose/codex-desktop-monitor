@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from .reviewer import find_codex
 
 ROOT = Path(__file__).resolve().parent.parent
 HUD = Path.home() / 'plugins/codex-monitor-hud'
@@ -63,11 +64,24 @@ def start_monitors():
                    creationflags=subprocess.CREATE_NO_WINDOW, timeout=25, check=True)
     heartbeat = STATE / 'hud.heartbeat'
     if HUD.exists() and not (heartbeat.exists() and time.time() - heartbeat.stat().st_mtime < 15):
+        env = hud_environment()
         for name in ('exit.signal', 'manual-exit.signal'):
             (STATE / name).unlink(missing_ok=True)
         subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                         '-File', str(HUD / 'scripts/start.ps1')],
-                       creationflags=subprocess.CREATE_NO_WINDOW, timeout=15, check=True)
+                       creationflags=subprocess.CREATE_NO_WINDOW, timeout=15, check=True, env=env)
+
+
+def hud_environment():
+    # Upstream asks for codex.cmd; Desktop ships codex.exe outside the user PATH.
+    # Scope this adapter to the HUD child process, without changing system PATH.
+    executable = find_codex()
+    shim = ROOT / '.local/hud-bin'
+    shim.mkdir(parents=True, exist_ok=True)
+    (shim / 'codex.cmd').write_text('@echo off\n"' + executable + '" %*\n', encoding='utf-8')
+    env = os.environ.copy()
+    env['PATH'] = str(shim) + os.pathsep + env.get('PATH', '')
+    return env
 
 
 def stop_monitors():
@@ -120,7 +134,7 @@ def main():
                 absent_since = absent_since or time.monotonic()
                 if time.monotonic() - absent_since >= 15:
                     stop_monitors(); running = False
-            (ROOT / '.local/lifecycle.json').write_text(json.dumps({'desktop_present': present, 'monitors_active': running, 'at': time.time()}))
+            (ROOT / '.local/lifecycle.json').write_text(json.dumps({'pid': os.getpid(), 'desktop_present': present, 'monitors_active': running, 'at': time.time()}))
         except Exception as exc:
             (ROOT / '.local/lifecycle-error.txt').write_text(type(exc).__name__, encoding='utf-8')
         time.sleep(5)
