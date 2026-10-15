@@ -1,10 +1,17 @@
 'use strict';
 const fragment = new URLSearchParams(location.hash.slice(1));
-if (fragment.has('token')) {
-  sessionStorage.setItem('monitor_access', fragment.get('token'));
+let access = fragment.get('token') || '';
+if (!access) {
+  try { access = localStorage.getItem('monitor_access') || sessionStorage.getItem('monitor_access') || ''; } catch {}
+}
+if (access) {
+  // Keep authorization across tabs in this browser; localStorage is origin/port scoped.
+  try { localStorage.setItem('monitor_access', access); } catch {}
+  try { sessionStorage.setItem('monitor_access', access); } catch {}
+}
+if (fragment.has('token') && access) {
   history.replaceState(null, '', location.pathname);
 }
-const access = sessionStorage.getItem('monitor_access') || '';
 const $ = id => document.getElementById(id);
 let previousCpu = null, inflight = false;
 const states = {observing:'正在接入',running:'运行中',finished:'本轮已结束',needs_attention:'需要处理',pause_requested:'等待下一步拦截',waiting_user:'等待桌面确认',interrupted:'已中断'};
