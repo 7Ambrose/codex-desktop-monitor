@@ -55,6 +55,34 @@ class EngineFixture(unittest.TestCase):
 
 
 class EngineTests(EngineFixture):
+    def test_stall_notice_is_deduplicated_and_uses_no_review(self):
+        self.event()
+        updated=self.store.task('task1')['updated']
+        self.engine.check_health(updated+601)
+        self.engine.check_health(updated+602)
+        self.assertEqual(len(self.engine.notices()),1)
+        self.assertEqual(self.engine.notices()[0]['kind'],'quiet')
+        self.assertEqual(self.engine.review_queue.qsize(),0)
+
+    def test_finished_task_does_not_receive_stall_notice(self):
+        self.event(); self.event('Stop',last_assistant_message='完成')
+        self.engine.check_health(time.time()+1000)
+        self.assertEqual([n['kind'] for n in self.engine.notices()],['finished'])
+
+    def test_different_consecutive_failures_still_notify_without_review(self):
+        self.event()
+        for code in (1,2,3):
+            self.event('PostToolUse',tool_name='Bash',tool_input={'command':'test'},tool_response={'exit_code':code})
+        self.assertEqual([n['kind'] for n in self.engine.notices()],['failures'])
+        self.assertEqual(self.engine.review_queue.qsize(),0)
+
+    def test_notice_acknowledge_preserves_task_control(self):
+        self.event(); self.event('Stop',last_assistant_message='完成')
+        ident=self.engine.notices()[0]['id']
+        self.engine.acknowledge(ident)
+        self.assertEqual(self.engine.notices()[0]['acknowledged'],1)
+        self.assertFalse(self.engine.gate('task1')['paused'])
+
     def test_economy_does_not_review_every_chat_reply(self):
         self.event()
         self.event('Stop', last_assistant_message='4')

@@ -97,7 +97,8 @@ def make_handler(engine, access_token):
                     # Summaries are enough for the overview; full prompts require an explicit detail request.
                     item.pop('prompt', None)
                     item.pop('last_message', None)
-                self.reply(200, {'tasks': tasks, 'uptime': now - engine.started,
+                self.reply(200, {'tasks': tasks, 'notices': engine.notices(), 'service_error': engine.service_error,
+                                 'stalled_notice_seconds': engine.settings.get('stalled_notice_seconds',600), 'uptime': now - engine.started,
                                  'process_cpu_seconds': time.process_time(), 'last_hook_at': engine.last_hook_at,
                                  'control_mode': 'checkpoint', 'hard_interrupt_available': False,
                                  'review_enabled': engine.settings['review_enabled'], 'review_queue': engine.review_queue.qsize(),
@@ -109,7 +110,9 @@ def make_handler(engine, access_token):
                 if not task:
                     self.reply(404, {'error': '任务不存在'})
                     return
-                self.reply(200, {'task': task, 'events': engine.store.events(sid, 80), 'reviews': engine.store.reviews(sid)})
+                events = engine.store.events(sid, 80)
+                errors = [event for event in events if event['kind']=='PostToolUse' and engine.failed(event['payload'].get('tool_response'))]
+                self.reply(200, {'task': task, 'events': events, 'recent_errors': errors[-3:], 'reviews': engine.store.reviews(sid)})
             elif url.path == '/api/gate':
                 sid = parse_qs(url.query).get('id', [''])[0]
                 self.reply(200, engine.gate(sid))
@@ -130,6 +133,9 @@ def make_handler(engine, access_token):
                 sid = payload.get('id', '')
                 if self.path == '/api/event':
                     self.reply(200, engine.accept(payload))
+                elif self.path == '/api/acknowledge':
+                    engine.acknowledge(sid)
+                    self.reply(200, {'ok': True})
                 elif self.path == '/api/pause':
                     self.reply(200, engine.request_pause(sid, '用户手动暂停', payload.get('turn_id')))
                 elif self.path == '/api/release':

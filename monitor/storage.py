@@ -35,6 +35,10 @@ class Store:
         CREATE TABLE IF NOT EXISTS decisions (
           id INTEGER PRIMARY KEY, task_id TEXT, turn_id TEXT, at REAL, action TEXT, reason TEXT
         );
+        CREATE TABLE IF NOT EXISTS notices (
+          id TEXT PRIMARY KEY, task_id TEXT, turn_id TEXT, kind TEXT,
+          at REAL, message TEXT, acknowledged INTEGER NOT NULL DEFAULT 0
+        );
         """)
         self.db.commit()
 
@@ -69,7 +73,7 @@ class Store:
     def prune(self, days):
         cutoff = time.time() - days * 86400
         with self.transaction() as db:
-            for table in ("events", "reviews", "decisions"):
+            for table in ("events", "reviews", "decisions", "notices"):
                 db.execute(f"DELETE FROM {table} WHERE at < ?", (cutoff,))
             db.execute("DELETE FROM tasks WHERE updated < ? AND state NOT IN ('running','pause_requested','waiting_user')", (cutoff,))
 

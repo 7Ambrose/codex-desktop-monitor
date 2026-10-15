@@ -34,13 +34,56 @@ class Engine:
         self.review_queue = queue.Queue(maxsize=50)
         self.queued = set()
         self.lock = threading.RLock()
-        self.last_hook_at = 0
+        self.last_hook_at = max((task['updated'] for task in store.tasks()), default=0)
         self.started = time.time()
         self.shutdown = threading.Event()
         self.service_error = None
 
     def start(self):
         threading.Thread(target=self._worker, daemon=True, name="quality-review").start()
+        threading.Thread(target=self._health_worker, daemon=True, name="local-alerts").start()
+
+    def notice(self, task, kind, message, suffix=''):
+        key = f"{task['id']}:{task['turn_id'] or task['started']}:{kind}:{suffix}"
+        with self.store.transaction() as db:
+            added = db.execute('INSERT OR IGNORE INTO notices(id,task_id,turn_id,kind,at,message) VALUES(?,?,?,?,?,?)',
+                               (key, task['id'], task['turn_id'], kind, time.time(), message)).rowcount
+        if added:
+            notify(task['title'][:45] + '：' + message)
+        return bool(added)
+
+    def notices(self, limit=50):
+        with self.store.lock:
+            return [dict(row) for row in self.store.db.execute('SELECT * FROM notices ORDER BY at DESC LIMIT ?', (limit,))]
+
+    def acknowledge(self, ident):
+        with self.store.transaction() as db:
+            db.execute('UPDATE notices SET acknowledged=1 WHERE id=?', (ident,))
+
+    @staticmethod
+    def failed(response):
+        if not isinstance(response, dict):
+            return False
+        for key in ('exit_code', 'exitCode'):
+            if key in response and response[key] not in (0, None, '0'):
+                return True
+        if response.get('isError') is True:
+            return True
+        return any(Engine.failed(response[key]) for key in ('result', 'structuredContent') if isinstance(response.get(key), dict))
+
+    def check_health(self, now=None):
+        now = time.time() if now is None else now
+        threshold = self.settings.get('stalled_notice_seconds', 600)
+        for task in self.store.tasks():
+            if task['state'] == 'running' and now - task['updated'] >= threshold:
+                self.notice(task, 'quiet', f"疑似停滞：至少 {int(threshold/60)} 分钟没有新事件。可能仍在推理或执行长命令，请打开聊天确认。", str(int(task['updated'])))
+
+    def _health_worker(self):
+        while not self.shutdown.wait(10):
+            try:
+                self.check_health()
+            except Exception:
+                self.service_error = '本地提醒检查失败，请查看后台状态'
 
     def accept(self, event):
         if not isinstance(event, dict):
@@ -96,23 +139,34 @@ class Engine:
         if kind == "PostToolUse":
             self._repeated_failure(sid)
         elif kind == "Stop":
+            if self.settings.get('notify_completed', True):
+                self.notice(self.store.task(sid), 'finished', '本轮执行已结束，尚不代表交付质量已核验。')
             mode = self.settings.get('review_mode', 'economy')
             if mode == 'comprehensive':
                 self.request_review(sid, "交付节点")
             elif mode == 'balanced' and self._artifacts(self.store.task(sid)):
                 self.request_review(sid, "文件交付节点")
+        elif kind == 'Interrupt' and self.settings.get('notify_interrupted', True):
+            self.notice(self.store.task(sid), 'interrupted', '任务已中断，可打开原聊天查看原因或手动继续。')
         return self.gate(sid)
 
     def _repeated_failure(self, sid):
         # Only consecutive explicit failures with exactly the same input and response qualify.
         events = [e for e in self.store.events(sid, 30) if e["kind"] in {"PostToolUse", "UserPromptSubmit"}]
         same = []
+        failures = 0
+        for item in reversed(events):
+            if item['kind'] == 'UserPromptSubmit' or not self.failed(item['payload'].get('tool_response')):
+                break
+            failures += 1
+        if failures >= self.settings['repeat_failure_count']:
+            self.notice(self.store.task(sid), 'failures', '工具已连续报错，请查看最近错误；尚未自动停止任务。')
         for item in reversed(events):
             if item["kind"] == "UserPromptSubmit":
                 break
             event = item["payload"]
             response = event.get("tool_response", {})
-            if not isinstance(response, dict) or not (response.get("isError") is True or response.get("exit_code", 0) not in (0, None)):
+            if not self.failed(response):
                 break
             fingerprint = hashlib.sha256(json.dumps([event.get("tool_name"), event.get("tool_input"), response], sort_keys=True).encode()).hexdigest()
             if same and fingerprint != same[-1]:
