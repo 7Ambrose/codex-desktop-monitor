@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/redmikarimo/codex-supervisor-mcp",
+  "commit": "63d45d034ed7a88c5c0caa387a9f5409836bcd27",
+  "version": "1.2.5",
+  "license": "MIT",
+  "copied": ["src", "package.json", "LICENSE", "test/mock-codex-app-server.mjs"],
+  "modifications": "No upstream code changes; local UI adapter lives in monitor/managed.py."
+}

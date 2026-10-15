@@ -41,7 +41,7 @@ def token():
     return value
 
 
-def make_handler(engine, access_token):
+def make_handler(engine, access_token, managed=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass  # Request headers and tokens never go into logs.
@@ -82,6 +82,8 @@ def make_handler(engine, access_token):
             url = urlsplit(self.path)
             static = {'/': ('index.html', 'text/html; charset=utf-8'),
                       '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+                      '/managed.js': ('managed.js', 'text/javascript; charset=utf-8'),
+                      '/managed.css': ('managed.css', 'text/css; charset=utf-8'),
                       '/style.css': ('style.css', 'text/css; charset=utf-8')}
             if url.path in static:
                 name, content = static[url.path]
@@ -99,6 +101,7 @@ def make_handler(engine, access_token):
                     item.pop('prompt', None)
                     item.pop('last_message', None)
                 self.reply(200, {'tasks': tasks, 'notices': engine.notices(), 'service_error': engine.service_error,
+                                 'managed_tasks': managed.overview() if managed else [], 'managed_available':managed is not None,
                                  'stalled_notice_seconds': engine.settings.get('stalled_notice_seconds',600), 'uptime': now - engine.started,
                                  'process_cpu_seconds': time.process_time(), 'last_hook_at': engine.last_hook_at,
                                  'control_mode': 'checkpoint', 'hard_interrupt_available': False,
@@ -134,6 +137,11 @@ def make_handler(engine, access_token):
                 sid = payload.get('id', '')
                 if self.path == '/api/event':
                     self.reply(200, engine.accept(payload))
+                elif self.path == '/api/managed/start' and managed:
+                    self.reply(200, managed.start(payload))
+                elif self.path.startswith('/api/managed/') and managed:
+                    action=self.path.rsplit('/',1)[-1]
+                    self.reply(200,managed.command(sid,action,payload))
                 elif self.path == '/api/acknowledge':
                     engine.acknowledge(sid)
                     self.reply(200, {'ok': True})
@@ -158,7 +166,7 @@ def make_handler(engine, access_token):
                     self.reply(200, engine.request_review(sid, '用户手动复核', manual=True))
                 else:
                     self.reply(404, {'error': '不存在的入口'})
-            except (ValueError, TypeError, KeyError) as exc:
+            except (ValueError, TypeError, KeyError, RuntimeError) as exc:
                 self.reply(400, {'error': str(exc)[:240]})
             except Exception:
                 self.reply(500, {'error': '服务处理失败，任务控制未确认'})
@@ -171,13 +179,16 @@ def serve():
     store = Store(LOCAL / 'monitor.sqlite')
     store.prune(config['retention_days'])
     engine = Engine(store, config, LOCAL)
-    server = ThreadingHTTPServer((config['host'], config['port']), make_handler(engine, secret))
+    from .managed import Managed
+    managed=Managed(engine)
+    server = ThreadingHTTPServer((config['host'], config['port']), make_handler(engine, secret, managed))
     server.daemon_threads = True
     engine.start()
     (LOCAL / 'service.json').write_text(json.dumps({'pid': os.getpid(), 'port': config['port'], 'started': time.time()}), encoding='utf-8')
     try:
         server.serve_forever(poll_interval=1)
     finally:
+        managed.close()
         engine.shutdown.set()
         server.server_close()
 

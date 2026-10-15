@@ -14,7 +14,7 @@ if (fragment.has('token') && access) {
 }
 const $ = id => document.getElementById(id);
 let previousCpu = null, inflight = false;
-const states = {observing:'正在接入',running:'运行中',finished:'本轮已结束',needs_attention:'需要处理',pause_requested:'等待下一步拦截',waiting_user:'等待桌面确认',interrupted:'已中断'};
+const states = {observing:'正在接入',running:'运行中',finished:'本轮已结束',needs_attention:'需要处理',pause_requested:'等待下一步拦截',waiting_user:'等待桌面确认',waiting_approval:'等待操作确认',interrupted:'已中断',error:'执行失败',disconnected:'控制连接已断开'};
 function element(tag, cls, text) { const el = document.createElement(tag); if (cls) el.className=cls; if (text !== undefined) el.textContent=text; return el; }
 function toast(text) { $('toast').textContent=text; $('toast').hidden=false; setTimeout(()=>{$('toast').hidden=true;},5000); }
 async function api(path, body) {
@@ -99,10 +99,11 @@ async function refresh() {
   if(inflight)return;inflight=true;
   try {
     const data=await api('/api/state');
+    renderManaged(data);
     $('capability').textContent='自动提醒：连续 3 次明确报错，或约 '+Math.round(data.stalled_notice_seconds/60)+' 分钟没进展。无需逐个复核；“检查结果质量”会额外使用 GPT。停止、继续现有桌面对话，请点“打开原聊天”在那里操作。';
     $('connection').textContent=data.last_hook_at?'已收到任务事件':'服务在线 · 等待任务接入';$('connection').className='live ok';
     $('active').textContent=data.tasks.filter(t=>['running','observing'].includes(t.state)).length;
-    $('attention').textContent=data.tasks.filter(t=>t.pause_reason).length+(data.notices||[]).filter(n=>!n.acknowledged&&['quiet','failures'].includes(n.kind)).length;
+    $('attention').textContent=data.tasks.filter(t=>t.pause_reason).length+(data.notices||[]).filter(n=>!n.acknowledged&&['quiet','failures','connection','managed_error','approval'].includes(n.kind)).length;
     const notices=data.notices||[];$('notice-section').hidden=!notices.length;
     $('notices').replaceChildren(...notices.slice(0,8).map(noticeCard));
     if(data.service_error){$('connection').textContent=data.service_error;$('connection').className='live';}
@@ -111,7 +112,8 @@ async function refresh() {
     const cpu={time:performance.now()/1000,value:data.process_cpu_seconds};
     if(previousCpu){const percent=100*(cpu.value-previousCpu.value)/(cpu.time-previousCpu.time);$('cpu').textContent=Math.max(0,percent).toFixed(1)+'% 单核';}
     previousCpu=cpu;
-    $('tasks').replaceChildren(...data.tasks.map(taskCard));$('empty').hidden=data.tasks.length>0;
+    const controlled=new Set((data.managed_tasks||[]).map(task=>task.id));
+    $('tasks').replaceChildren(...data.tasks.filter(task=>!controlled.has(task.id)).map(taskCard));$('empty').hidden=data.tasks.length>0;
     $('updated').textContent='更新于 '+new Date().toLocaleTimeString();
   } catch(e){$('connection').textContent='连接未完成';$('connection').className='live';$('empty').querySelector('p').textContent=e.message;}
   finally{inflight=false;}

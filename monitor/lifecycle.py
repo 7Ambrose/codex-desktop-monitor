@@ -59,6 +59,7 @@ def is_desktop(path):
 
 
 def start_monitors():
+    ensure_simple_hud()
     subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                     '-File', str(ROOT / 'launch.ps1'), '-NoBrowser'],
                    creationflags=subprocess.CREATE_NO_WINDOW, timeout=25, check=True)
@@ -81,6 +82,28 @@ def hud_environment():
     env = os.environ.copy()
     env['PATH'] = str(shim) + os.pathsep + env.get('PATH', '')
     return env
+
+
+def ensure_simple_hud():
+    from .server import settings
+    if not settings().get('simple_hud_enabled',True):return False
+    path=STATE/'settings.json'
+    if not path.exists():return False
+    data=json.loads(path.read_text(encoding='utf-8-sig'))
+    before=json.dumps(data,sort_keys=True)
+    data['layout']='compact';data['fontSize']=12;data['animateUpdates']=False
+    multi=data.setdefault('multiTask',{});multi['displayMode']='summary';multi['autoSplitNewTasks']=False
+    for section in ('listFields','bubbleFields'):
+        for field in multi.get(section,{}):multi[section][field]=False
+    fields=data.setdefault('fields',{})
+    for field in fields:fields[field]=field in ('activeTasks','weeklyRemaining','fiveHourRemaining')
+    for field in ('activeTasks','weeklyRemaining','fiveHourRemaining'):fields[field]=True
+    if json.dumps(data,sort_keys=True)==before:return False
+    temp=path.with_suffix('.monitor.tmp')
+    temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+    os.replace(temp,path)
+    (STATE/'reload-settings.signal').write_text('simple mode',encoding='ascii')
+    return True
 
 
 def stop_monitors():
@@ -133,6 +156,7 @@ def main():
                 elif time.monotonic() - last_health >= 30:
                     # Do not assume a process stays alive after its first successful start.
                     last_health = time.monotonic()
+                    ensure_simple_hud()
                     heartbeat = STATE / 'hud.heartbeat'
                     hud_alive = heartbeat.exists() and time.time() - heartbeat.stat().st_mtime < 20
                     service_alive = False

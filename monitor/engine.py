@@ -101,7 +101,7 @@ class Engine:
             return {"ignored": True}
         event = redacted(event)
         kind = event.get("hook_event_name", "")
-        if kind not in {"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "Interrupt", "PreCompact", "PostCompact"}:
+        if kind not in {"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "Interrupt", "PreCompact", "PostCompact", "TaskFailed"}:
             raise ValueError("不支持的事件")
         turn = str(event.get("turn_id") or "")
         now = time.time()
@@ -133,6 +133,8 @@ class Engine:
                            (str(event.get("last_assistant_message") or "")[:24000], sid))
             elif kind == "Interrupt":
                 db.execute("UPDATE tasks SET state='interrupted',pause_confirmed=1 WHERE id=?", (sid,))
+            elif kind == 'TaskFailed':
+                db.execute("UPDATE tasks SET state='error',last_message=? WHERE id=?",(str(event.get('last_assistant_message',''))[:24000],sid))
             # Revisions identify semantic snapshots; new tool activity invalidates an in-flight judgment.
             if kind in {"PreToolUse", "PostToolUse", "Stop"}:
                 db.execute("UPDATE tasks SET revision=revision+1 WHERE id=?", (sid,))
@@ -148,6 +150,8 @@ class Engine:
                 self.request_review(sid, "文件交付节点")
         elif kind == 'Interrupt' and self.settings.get('notify_interrupted', True):
             self.notice(self.store.task(sid), 'interrupted', '任务已中断，可打开原聊天查看原因或手动继续。')
+        elif kind == 'TaskFailed':
+            self.notice(self.store.task(sid),'managed_error','任务执行失败，请查看面板错误。')
         return self.gate(sid)
 
     def _repeated_failure(self, sid):

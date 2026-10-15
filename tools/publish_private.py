@@ -48,7 +48,7 @@ def main(check=False):
         repo=api('/user/repos',{'name':NAME,'private':True,'description':'Codex 桌面任务监控：本地面板、独立复核与操作确认。','auto_init':False})
     if not repo.get('private'):raise RuntimeError('未确认仓库私有，停止上传。')
     if not (ROOT/'.git').exists():git('init','-b','main')
-    files=['.gitignore','settings.example.json','monitor','web','tests','tools','assets','run.py','configure.py','README.md','RESEARCH.md','THIRD_PARTY.md','设计方案.md','打开监控.cmd','launch.ps1','restart.ps1','install_windows.ps1','configure_lifecycle.ps1','install_desktop.ps1','lifecycle_bootstrap.py','codex_proxy.py']
+    files=['.gitignore','settings.example.json','monitor','web','tests','tools','assets','vendor','run.py','configure.py','README.md','RESEARCH.md','THIRD_PARTY.md','设计方案.md','打开监控.cmd','launch.ps1','restart.ps1','install_windows.ps1','configure_lifecycle.ps1','install_desktop.ps1','lifecycle_bootstrap.py','codex_proxy.py']
     git('add','--',*[name for name in files if (ROOT/name).exists()])
     staged=git('diff','--cached','--name-only',capture=True).stdout.splitlines()
     if any(name.startswith(('.local/','_scratch/')) or name=='settings.local.json' or name.endswith(('.sqlite','.log')) for name in staged):
