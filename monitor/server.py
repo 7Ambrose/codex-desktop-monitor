@@ -94,6 +94,7 @@ def make_handler(engine, access_token):
                 now = time.time()
                 for item in tasks:
                     item['quiet'] = item['state'] == 'running' and now - item['updated'] > engine.settings['quiet_warning_seconds']
+                    item['suspected_stall'] = item['state'] == 'running' and now-item['updated'] >= engine.settings.get('stalled_notice_seconds',600)
                     # Summaries are enough for the overview; full prompts require an explicit detail request.
                     item.pop('prompt', None)
                     item.pop('last_message', None)

@@ -54,7 +54,7 @@ class Engine:
 
     def notices(self, limit=50):
         with self.store.lock:
-            return [dict(row) for row in self.store.db.execute('SELECT * FROM notices ORDER BY at DESC LIMIT ?', (limit,))]
+            return [dict(row) for row in self.store.db.execute('SELECT notices.*,tasks.title AS task_title FROM notices LEFT JOIN tasks ON tasks.id=notices.task_id ORDER BY notices.at DESC LIMIT ?', (limit,))]
 
     def acknowledge(self, ident):
         with self.store.transaction() as db:
