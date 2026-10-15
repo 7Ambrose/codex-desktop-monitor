@@ -1,0 +1,21 @@
+{
+  "host": "127.0.0.1",
+  "port": 17863,
+  "enabled_roots": [],
+  "excluded_thread_ids": [],
+  "review_model": "gpt-6-luna",
+  "review_fallback_model": "gpt-5.6-luna",
+  "review_mode": "economy",
+  "review_enabled": true,
+  "review_cooldown_seconds": 600,
+  "review_timeout_seconds": 150,
+  "review_limit_per_turn": 1,
+  "review_daily_limit": 10,
+  "review_max_input_chars": 12000,
+  "repeat_failure_count": 3,
+  "quiet_warning_seconds": 180,
+  "retention_days": 7,
+  "auto_pause": true,
+  "codex_path": ""
+}
+

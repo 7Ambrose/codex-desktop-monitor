@@ -1,0 +1,11 @@
+.local/
+_scratch/
+__pycache__/
+*.py[cod]
+.venv/
+*.sqlite*
+*.log
+settings.local.json
+.env*
+!.env.example
+
