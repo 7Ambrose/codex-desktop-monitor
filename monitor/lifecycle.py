@@ -75,10 +75,9 @@ def start_monitors():
 def hud_environment():
     # Upstream asks for codex.cmd; Desktop ships codex.exe outside the user PATH.
     # Scope this adapter to the HUD child process, without changing system PATH.
-    executable = find_codex()
     shim = ROOT / '.local/hud-bin'
     shim.mkdir(parents=True, exist_ok=True)
-    (shim / 'codex.cmd').write_text('@echo off\n"' + executable + '" %*\n', encoding='utf-8')
+    (shim / 'codex.cmd').write_text('@echo off\n"' + str(Path(sys.executable).with_name('python.exe')) + '" "' + str(ROOT / 'codex_proxy.py') + '" %*\n', encoding='mbcs')
     env = os.environ.copy()
     env['PATH'] = str(shim) + os.pathsep + env.get('PATH', '')
     return env
@@ -122,7 +121,7 @@ def main():
     mutex = kernel.CreateMutexW(None, False, 'Local\\CodexMonitor-' + hashlib.sha256(str(ROOT).encode()).hexdigest()[:16])
     if not mutex or ctypes.get_last_error() == 183:
         return
-    running = False; absent_since = None
+    running = False; absent_since = None; last_health = 0
     while True:
         try:
             present = any(is_desktop(path) for _, path in processes())
@@ -130,6 +129,22 @@ def main():
                 absent_since = None
                 if not running:
                     start_monitors(); running = True
+                    last_health = time.monotonic()
+                elif time.monotonic() - last_health >= 30:
+                    # Do not assume a process stays alive after its first successful start.
+                    last_health = time.monotonic()
+                    heartbeat = STATE / 'hud.heartbeat'
+                    hud_alive = heartbeat.exists() and time.time() - heartbeat.stat().st_mtime < 20
+                    service_alive = False
+                    try:
+                        import socket
+                        from .server import settings
+                        with socket.create_connection(('127.0.0.1', settings()['port']), timeout=2):
+                            service_alive = True
+                    except OSError:
+                        pass
+                    if not hud_alive or not service_alive:
+                        start_monitors()
             elif running:
                 absent_since = absent_since or time.monotonic()
                 if time.monotonic() - absent_since >= 15:

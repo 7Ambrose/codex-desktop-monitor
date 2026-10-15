@@ -38,11 +38,19 @@ foreach ($folder in @($desktop,$startup)) {
     }
   }
 }
+$oldStartup = Join-Path $startup 'Codex Monitor Lifecycle.lnk'
+if (Test-Path -LiteralPath $oldStartup) {
+  $old = $shell.CreateShortcut($oldStartup)
+  $ours = $old.Arguments.Contains('monitor.lifecycle') -or $old.Arguments.Contains((Join-Path $root 'lifecycle_bootstrap.py'))
+  if ($old.TargetPath -ne $python -or -not $ours) { throw 'Unrelated lifecycle shortcut' }
+  Move-Item -LiteralPath $oldStartup -Destination (Join-Path $backup 'Lifecycle-startup.lnk')
+}
+$entry = Join-Path $root 'lifecycle_bootstrap.py'
 $link = $shell.CreateShortcut((Join-Path $startup 'Codex Monitor Lifecycle.lnk'))
 $link.TargetPath = $python
-$link.Arguments = '-m monitor.lifecycle'
+$link.Arguments = '"' + $entry + '"'
 $link.WorkingDirectory = $root
 $link.WindowStyle = 7
 $link.Save()
-Start-Process -FilePath $python -ArgumentList '-m monitor.lifecycle' -WorkingDirectory $root -WindowStyle Hidden
+Start-Process -FilePath $python -ArgumentList ('"' + $entry + '"') -WorkingDirectory $root -WindowStyle Hidden
 Write-Output 'Desktop links moved to backup. Monitors now follow the Codex desktop process.'
