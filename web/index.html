@@ -24,9 +24,9 @@
   <section class="workspace">
     <form id="managed-form">
       <div class="folder-row"><label for="managed-cwd">工作文件夹</label><input id="managed-cwd" required aria-label="工作文件夹" placeholder="D:\Codex\我的项目"></div>
-      <details class="advanced-options"><summary>模型与权限 <span id="composer-config-label">当前设置 · 中等思考</span></summary><div class="compose-options">
+      <details class="advanced-options"><summary>模型与权限 <span id="composer-config-label">跟随当前模型 · 高等思考</span></summary><div class="compose-options">
         <label>模型<select id="managed-model"><option value="">跟随 Codex 当前设置</option><option value="gpt-6.1-sol">GPT-6.1 Sol</option><option value="gpt-6-luna">GPT-6 Luna</option><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-5.6-luna">GPT-5.6 Luna</option></select></label>
-        <label>思考强度<select id="managed-effort"><option value="low">低</option><option value="medium" selected>中</option><option value="high">高</option></select></label>
+        <label>思考强度<select id="managed-effort"><option value="low">低</option><option value="medium">中</option><option value="high" selected>高</option></select></label>
         <label>文件权限<select id="managed-mode"><option value="workspace-write">允许修改此文件夹</option><option value="read-only">只读，不修改</option></select></label>
       </div><p class="meta">这些设置用于新任务。命令联网受限，不影响 CLI 连接 OpenAI。</p></details>
       <div class="input-box"><textarea id="managed-prompt" maxlength="24000" rows="3" aria-label="任务内容" placeholder="描述任务，或粘贴报错……"></textarea><div class="composer-bottom"><span id="managed-feedback" role="status">沿用 Codex 登录</span><button id="managed-submit" type="submit">发送 <span aria-hidden="true">↑</span></button></div></div>
