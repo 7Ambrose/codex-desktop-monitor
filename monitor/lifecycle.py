@@ -91,7 +91,12 @@ def ensure_simple_hud():
     if not path.exists():return False
     data=json.loads(path.read_text(encoding='utf-8-sig'))
     before=json.dumps(data,sort_keys=True)
+    data['language']='zh-CN'
     data['layout']='compact';data['fontSize']=12;data['animateUpdates']=False
+    data.update(background='#FF17181C', foreground='#FFF7F8FA', muted='#FFA8B0BD',
+                border='#26FFFFFF', opacity=.95, transparencyMode='uniform')
+    theme=data.setdefault('themeStyle',{})
+    theme.update(surface='solid',gradientStart='#FF17181C',gradientEnd='#FF17181C',backgroundImage='')
     multi=data.setdefault('multiTask',{});multi['displayMode']='summary';multi['autoSplitNewTasks']=False
     for section in ('listFields','bubbleFields'):
         for field in multi.get(section,{}):multi[section][field]=False
