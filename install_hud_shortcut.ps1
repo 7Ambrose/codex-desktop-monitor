@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
-$pythonw = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\python\pythonw.exe'
-if (-not (Test-Path -LiteralPath $pythonw)) { throw 'Python runtime not found.' }
+. (Join-Path $PSScriptRoot 'runtime.ps1')
+$pythonw = Get-MonitorPythonw
 $taskName = 'CodexMonitorLifecycle'
 $bootstrap = Join-Path $PSScriptRoot 'lifecycle_bootstrap.py'
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue

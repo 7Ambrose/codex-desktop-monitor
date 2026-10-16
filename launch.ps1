@@ -1,12 +1,8 @@
 param([switch]$NoBrowser)
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
-$pythonCandidates = @(
-  "$env:USERPROFILE\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe",
-  "$env:USERPROFILE\anaconda3\python.exe"
-)
-$pythonExe = $pythonCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $pythonExe) { $pythonExe = (Get-Command python -ErrorAction Stop).Source }
+. (Join-Path $PSScriptRoot 'runtime.ps1')
+$pythonExe = Get-MonitorPython
 $running = $false
 try {
   $service = Get-Content -LiteralPath (Join-Path $projectRoot '.local\service.json') -Raw | ConvertFrom-Json
