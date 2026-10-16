@@ -144,9 +144,9 @@ class Managed:
         if not path.is_dir() or not any(within(path,root) for root in self.settings['enabled_roots']):raise ValueError('请选择监控范围内的工作文件夹。')
         mode=payload.get('mode','workspace-write')
         if mode not in ('read-only','workspace-write'):raise ValueError('任务权限选项无效。')
-        effort=payload.get('effort','medium')
-        if effort not in ('low','medium','high'):raise ValueError('思考强度选项无效。')
-        model=payload.get('model','gpt-6.1-sol')
+        effort=payload.get('effort','')
+        if effort not in ('','low','medium','high'):raise ValueError('思考强度选项无效。')
+        model=payload.get('model','')
         if model not in ('','gpt-6.1-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-luna'):raise ValueError('模型选项无效。')
         digest=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
         with self.lock:
@@ -158,8 +158,9 @@ class Managed:
             pending=sum(1 for item in self.requests.values() if not item.get('id') and item.get('status')!='failed')
             if sum(bool(t.get('active')) for t in self.tasks.values())+pending>=4:raise ValueError('同时最多执行或等待启动 4 个面板任务；有未确认请求时请先核对状态。')
             self.requests[key]={'hash':digest,'at':time.time()};self._save()
-        args={'cwd':str(path),'prompt':prompt,'sandboxMode':mode,'effort':effort,'approvalPolicy':'on-request','networkAccess':False}
+        args={'cwd':str(path),'prompt':prompt,'sandboxMode':mode,'approvalPolicy':'on-request','networkAccess':False}
         if model:args['model']=model
+        if effort:args['effort']=effort
         result=self._client().call('codex_start',args)
         sid=result['threadId']
         item={'id':sid,'cwd':str(path),'title':prompt[:64],'model':model,'effort':effort,'mode':mode,
@@ -185,8 +186,9 @@ class Managed:
                 prompt=payload.get('prompt','').strip()
                 if not prompt or len(prompt)>24000:raise ValueError('请输入后续要求，长度不超过 24000 字符。')
                 if self.engine.gate(sid).get('paused'):self.engine.release(sid,task['turn_id'])
-                args={'threadId':sid,'prompt':prompt,'sandboxMode':task['mode'],'effort':task['effort'],'approvalPolicy':'on-request','networkAccess':False}
+                args={'threadId':sid,'prompt':prompt,'sandboxMode':task['mode'],'approvalPolicy':'on-request','networkAccess':False}
                 if task['model']:args['model']=task['model']
+                if task['effort']:args['effort']=task['effort']
                 with self.lock:task.update(active=True,status='starting',error=None);self._save()
                 result=self._client().call('codex_send',args)
                 with self.lock:task.update(turn_id=result['turnId'],active=True,status='running',cursor=result.get('eventCursor',0),pending=[],error=None);self._save()

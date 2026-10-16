@@ -42,7 +42,7 @@ function renderManaged(data){
   if(composerTask!==selectedTaskId){
     for(const name of fields){
       const input=document.getElementById('managed-'+name);
-      if(task)input.value=task[name]|| (name==='effort'?'medium':name==='mode'?'workspace-write':'');
+      if(task)input.value=task[name]??(name==='mode'?'workspace-write':'');
       else if(newTaskSettings)input.value=newTaskSettings[name];
     }
     composerTask=selectedTaskId;
@@ -51,7 +51,7 @@ function renderManaged(data){
   const cwd=document.getElementById('managed-cwd');
   if(!cwd.value&&!cwd.matches(':focus')&&data.enabled_roots?.length)cwd.value=data.enabled_roots[0];
   const model=document.getElementById('managed-model'),effort=document.getElementById('managed-effort');
-  document.getElementById('composer-config-label').textContent=(model.value?model.options[model.selectedIndex]?.text:'当前模型')+' · '+({low:'低',medium:'中',high:'高'}[effort.value]||'中')+'等思考';
+  document.getElementById('composer-config-label').textContent=(model.value?model.options[model.selectedIndex]?.text:'Codex 默认模型')+' · '+(effort.value?({low:'低',medium:'中',high:'高'}[effort.value]+'推理'):'Codex 默认推理');
   const key=JSON.stringify(task?[task.id,task.status,task.turn_id,task.active,task.message,task.error,task.pending,historyCache.get(task.id)?.key]:[]);
   if(key!==managedRenderKey){
     const area=document.getElementById('managed-tasks');
