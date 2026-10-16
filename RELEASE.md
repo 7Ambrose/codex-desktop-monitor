@@ -1,6 +1,8 @@
-# Codex 监控 v0.1.0-preview
+# Codex 监控 v0.1.1-preview
 
 Windows 首个预览版，适合愿意安装运行环境并反馈问题的用户。提供源码压缩包，不是免安装 EXE；尚未在全新 Windows 电脑上完成验收。
+
+本次更新：仓库公开，项目代码采用 MIT 许可，发布附件包含许可证。第三方组件保留各自许可。
 
 ## 有哪些功能
 
@@ -28,7 +30,7 @@ Windows 首个预览版，适合愿意安装运行环境并反馈问题的用户
 
 ## 安装和使用
 
-1. 下载本 Release 的 `codex-monitor-v0.1.0-preview-windows-source.zip`，解压到一个准备长期保留的文件夹。快捷方式会引用它，不要随后移动或删除。
+1. 下载本 Release 的 `codex-monitor-v0.1.1-preview-windows-source.zip`，解压到一个准备长期保留的文件夹。快捷方式会引用它，不要随后移动或删除。
 2. 双击 `安装.cmd`。它会检查运行环境、备份并合并 Codex MCP/Hook 定义，建立两个桌面快捷方式和当前用户的 `CodexMonitorLifecycle` 登录任务。系统策略可能限制计划任务创建；失败时按报错处理，不能认为自启已经安装。
 3. 根据 Codex 官方流程审核并信任新钩子，重启 Codex。仅看到 HUD 不代表桌面对话已接入监控。
 4. 在 `settings.local.json` 的 `enabled_roots` 中设置实际工作文件夹。首次默认范围是解压目录的父文件夹，请先检查。
@@ -54,6 +56,6 @@ Windows 首个预览版，适合愿意安装运行环境并反馈问题的用户
 
 ## 分享
 
-仓库目前保持私有，Release 链接仅对有仓库访问权限的人可用。也可以下载本 Release 的干净源码附件，再直接发给对方。不要把正在使用的整个安装文件夹直接打包，以免夹带个人配置、日志或令牌。
+仓库和 Release 公开，可以直接分享 [项目链接](https://github.com/7Ambrose/codex-desktop-monitor) 或 [下载页面](https://github.com/7Ambrose/codex-desktop-monitor/releases)。对方仍需按安装要求准备自己的运行环境和 Codex 账号。不要把正在使用的整个安装文件夹直接打包，以免夹带个人配置、日志或令牌。
 
 第三方组件与许可见 `THIRD_PARTY.md` 和 `vendor/supervisor/LICENSE`。

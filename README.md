@@ -1,5 +1,9 @@
 # Codex 桌面任务监控
 
+[下载预览版](https://github.com/7Ambrose/codex-desktop-monitor/releases) · [MIT 许可证](LICENSE)
+
+**本机网页：**安装启动后，双击桌面“Codex 监控”打开带验证的面板，默认地址为 `http://127.0.0.1:17863/`。这是每个人自己电脑上的地址；分享项目请发上方 GitHub 链接。
+
 **Windows 预览版：安装环境、下载步骤、已知限制与分享方法见 [发布说明](RELEASE.md)。提供源码包，需要 Python 3.11+、Node.js 22+、已登录的官方 Codex 和单独安装的 HUD。**
 
 ## 组合方案

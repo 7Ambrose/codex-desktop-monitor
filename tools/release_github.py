@@ -15,7 +15,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = '7Ambrose/codex-desktop-monitor'
-VERSION = 'v0.1.0-preview'
+VERSION = 'v0.1.1-preview'
 ENV = dict(os.environ, GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never')
 
 
@@ -38,7 +38,7 @@ def build():
                 raise RuntimeError('Private or generated data found in package.')
         if package.testzip():
             raise RuntimeError('Release archive failed integrity check.')
-        for required in ('RELEASE.md','安装.cmd','runtime.ps1','vendor/supervisor/LICENSE'):
+        for required in ('LICENSE','RELEASE.md','安装.cmd','runtime.ps1','vendor/supervisor/LICENSE'):
             if 'codex-monitor/'+required not in names:
                 raise RuntimeError('Required release file is missing: '+required)
     checksums = out/'SHA256SUMS.txt'
@@ -75,10 +75,10 @@ def main():
         return
     github = GitHub()
     repo = github.call('/repos/'+REPO)
-    if not repo.get('private'): raise RuntimeError('Repository privacy changed; publishing stopped.')
+    if repo.get('private'): raise RuntimeError('Expected the user-authorized public repository; publishing stopped.')
     if args.inspect:
         releases = github.call('/repos/'+REPO+'/releases')
-        print(json.dumps({'private':True,'url':repo['html_url'],'releases':[{'tag':r['tag_name'],'draft':r['draft']} for r in releases]}))
+        print(json.dumps({'private':repo['private'],'url':repo['html_url'],'releases':[{'tag':r['tag_name'],'draft':r['draft']} for r in releases]}))
         return
     sha = git('rev-parse','HEAD')
     remote = github.call('/repos/'+REPO+'/git/ref/heads/main')['object']['sha']
@@ -113,7 +113,7 @@ def main():
         if not match or match['size'] != asset.stat().st_size:
             raise RuntimeError('Release asset verification failed.')
     published = github.call(path+'/'+str(release['id']),{'draft':False},method='PATCH')
-    print(json.dumps({'url':published['html_url'],'prerelease':published['prerelease'],'private':True,'assets':[a['name'] for a in verified]},ensure_ascii=False))
+    print(json.dumps({'url':published['html_url'],'prerelease':published['prerelease'],'private':repo['private'],'assets':[a['name'] for a in verified]},ensure_ascii=False))
 
 
 if __name__=='__main__':
