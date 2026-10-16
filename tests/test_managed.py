@@ -34,8 +34,8 @@ class ManagedTests(unittest.TestCase):
 
     def test_real_mcp_transport_start_approval_and_finish(self):
         sid=self.start();task=self.manager.refresh_task(sid)
-        self.assertEqual(task['effort'],'high')
-        self.assertEqual(task['model'],'')
+        self.assertEqual(task['effort'],'medium')
+        self.assertEqual(task['model'],'gpt-6.1-sol')
         self.assertEqual(task['status'],'needs_approval')
         self.assertEqual(self.store.task(sid)['state'],'waiting_approval')
         request=task['pending'][0]

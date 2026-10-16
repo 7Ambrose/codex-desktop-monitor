@@ -144,9 +144,9 @@ class Managed:
         if not path.is_dir() or not any(within(path,root) for root in self.settings['enabled_roots']):raise ValueError('请选择监控范围内的工作文件夹。')
         mode=payload.get('mode','workspace-write')
         if mode not in ('read-only','workspace-write'):raise ValueError('任务权限选项无效。')
-        effort=payload.get('effort','high')
+        effort=payload.get('effort','medium')
         if effort not in ('low','medium','high'):raise ValueError('思考强度选项无效。')
-        model=payload.get('model','')
+        model=payload.get('model','gpt-6.1-sol')
         if model not in ('','gpt-6.1-sol','gpt-6-luna','gpt-5.6-sol','gpt-5.6-luna'):raise ValueError('模型选项无效。')
         digest=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
         with self.lock:
