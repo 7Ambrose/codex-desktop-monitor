@@ -19,7 +19,6 @@
   "notify_interrupted": true,
   "retention_days": 7,
   "auto_pause": true,
-  "simple_hud_enabled": true,
   "codex_path": ""
 }
 

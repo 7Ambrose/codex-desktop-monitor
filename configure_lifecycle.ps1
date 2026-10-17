@@ -7,24 +7,6 @@ $desktop = [Environment]::GetFolderPath('Desktop')
 $startup = [Environment]::GetFolderPath('Startup')
 $backup = Join-Path $root ('.local\shortcuts-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Force -Path $backup | Out-Null
-$hudState = Join-Path $env:LOCALAPPDATA 'CodexMonitorHUD'
-$settingsPath = Join-Path $hudState 'settings.json'
-if (Test-Path -LiteralPath $settingsPath) {
-  Copy-Item -LiteralPath $settingsPath -Destination (Join-Path $backup 'hud-settings.json')
-  $config = Get-Content -LiteralPath $settingsPath -Encoding UTF8 -Raw | ConvertFrom-Json
-  $config.layout = 'compact'
-  $config.multiTask.displayMode = 'summary'
-  $config.multiTask.autoSplitNewTasks = $false
-  foreach ($field in $config.fields.PSObject.Properties.Name) { $config.fields.$field = $false }
-  $config.fields.activeTasks = $true
-  $config.fields.fiveHourRemaining = $true
-  $config.fields.weeklyRemaining = $true
-  $config.fontSize = 12
-  $config.animateUpdates = $false
-  $config.attention.dotBreathing = $false
-  [IO.File]::WriteAllText($settingsPath, ($config | ConvertTo-Json -Depth 30), (New-Object Text.UTF8Encoding($false)))
-  [IO.File]::WriteAllText((Join-Path $hudState 'reload-settings.signal'), 'minimal')
-}
 foreach ($folder in @($desktop,$startup)) {
   foreach ($name in @('Codex Monitor.lnk','Codex Monitor Background.lnk','Codex Monitor HUD Settings.lnk','Codex HUD.lnk')) {
     $path = Join-Path $folder $name

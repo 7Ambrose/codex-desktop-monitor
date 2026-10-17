@@ -59,7 +59,6 @@ def is_desktop(path):
 
 
 def start_monitors():
-    ensure_simple_hud()
     subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                     '-File', str(ROOT / 'launch.ps1'), '-NoBrowser'],
                    creationflags=subprocess.CREATE_NO_WINDOW, timeout=25, check=True)
@@ -71,6 +70,14 @@ def start_monitors():
         subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                         '-File', str(HUD / 'scripts/start.ps1')],
                        creationflags=subprocess.CREATE_NO_WINDOW, timeout=15, check=True, env=env)
+    # Give the HUD a moment to create its window, then only correct its position
+    # if it has drifted outside the current monitor's work area. Never rewrite
+    # the user's saved appearance settings here.
+    if HUD.exists():
+        for _ in range(8):
+            if keep_hud_visible():
+                break
+            time.sleep(0.5)
 
 
 def hud_environment():
@@ -84,31 +91,68 @@ def hud_environment():
     return env
 
 
-def ensure_simple_hud():
-    from .server import settings
-    if not settings().get('simple_hud_enabled',True):return False
-    path=STATE/'settings.json'
-    if not path.exists():return False
-    data=json.loads(path.read_text(encoding='utf-8-sig'))
-    before=json.dumps(data,sort_keys=True)
-    data['language']='zh-CN'
-    data['layout']='compact';data['fontSize']=12;data['animateUpdates']=False
-    data.update(background='#FF17181C', foreground='#FFF7F8FA', muted='#FFA8B0BD',
-                border='#26FFFFFF', opacity=.95, transparencyMode='uniform')
-    theme=data.setdefault('themeStyle',{})
-    theme.update(surface='solid',gradientStart='#FF17181C',gradientEnd='#FF17181C',backgroundImage='')
-    multi=data.setdefault('multiTask',{});multi['displayMode']='summary';multi['autoSplitNewTasks']=False
-    for section in ('listFields','bubbleFields'):
-        for field in multi.get(section,{}):multi[section][field]=False
-    fields=data.setdefault('fields',{})
-    for field in fields:fields[field]=field in ('activeTasks','weeklyRemaining','fiveHourRemaining')
-    for field in ('activeTasks','weeklyRemaining','fiveHourRemaining'):fields[field]=True
-    if json.dumps(data,sort_keys=True)==before:return False
-    temp=path.with_suffix('.monitor.tmp')
-    temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
-    os.replace(temp,path)
-    (STATE/'reload-settings.signal').write_text('simple mode',encoding='ascii')
-    return True
+def clamp_window_rect(rect, work_area):
+    """Keep a window rectangle inside a work area without changing its size."""
+    left, top, right, bottom = rect
+    work_left, work_top, work_right, work_bottom = work_area
+    width, height = right - left, bottom - top
+    max_left = max(work_left, work_right - width)
+    max_top = max(work_top, work_bottom - height)
+    new_left = min(max(left, work_left), max_left)
+    new_top = min(max(top, work_top), max_top)
+    return (new_left, new_top, new_left + width, new_top + height)
+
+
+def keep_hud_visible():
+    """Move the HUD into its monitor's work area when it is partly off-screen."""
+    user32 = ctypes.WinDLL('user32', use_last_error=True)
+
+    class Rect(ctypes.Structure):
+        _fields_ = [('left', w.LONG), ('top', w.LONG), ('right', w.LONG), ('bottom', w.LONG)]
+
+    class MonitorInfo(ctypes.Structure):
+        _fields_ = [('cbSize', w.DWORD), ('rcMonitor', Rect), ('rcWork', Rect), ('dwFlags', w.DWORD)]
+
+    callback_type = ctypes.WINFUNCTYPE(w.BOOL, w.HWND, w.LPARAM)
+    user32.EnumWindows.argtypes = [callback_type, w.LPARAM]
+    user32.IsWindowVisible.argtypes = [w.HWND]
+    user32.GetWindowTextLengthW.argtypes = [w.HWND]
+    user32.GetWindowTextW.argtypes = [w.HWND, w.LPWSTR, ctypes.c_int]
+    user32.GetWindowRect.argtypes = [w.HWND, ctypes.POINTER(Rect)]
+    user32.MonitorFromWindow.argtypes = [w.HWND, w.DWORD]
+    user32.MonitorFromWindow.restype = w.HANDLE
+    user32.GetMonitorInfoW.argtypes = [w.HANDLE, ctypes.POINTER(MonitorInfo)]
+    user32.SetWindowPos.argtypes = [w.HWND, w.HWND, ctypes.c_int, ctypes.c_int,
+                                   ctypes.c_int, ctypes.c_int, w.UINT]
+    found = False
+
+    def inspect(hwnd, _):
+        nonlocal found
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        length = user32.GetWindowTextLengthW(hwnd)
+        title = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, title, length + 1)
+        if title.value != 'Codex Monitor HUD':
+            return True
+        rect = Rect()
+        if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return True
+        monitor = user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+        info = MonitorInfo(); info.cbSize = ctypes.sizeof(info)
+        if not monitor or not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            return True
+        current = (rect.left, rect.top, rect.right, rect.bottom)
+        area = (info.rcWork.left, info.rcWork.top, info.rcWork.right, info.rcWork.bottom)
+        adjusted = clamp_window_rect(current, area)
+        if adjusted != current:
+            left, top, right, bottom = adjusted
+            user32.SetWindowPos(hwnd, None, left, top, right - left, bottom - top, 0x0014)
+        found = True
+        return False
+
+    user32.EnumWindows(callback_type(inspect), 0)
+    return found
 
 
 def stop_monitors():
@@ -161,7 +205,7 @@ def main():
                 elif time.monotonic() - last_health >= 30:
                     # Do not assume a process stays alive after its first successful start.
                     last_health = time.monotonic()
-                    ensure_simple_hud()
+                    keep_hud_visible()
                     heartbeat = STATE / 'hud.heartbeat'
                     hud_alive = heartbeat.exists() and time.time() - heartbeat.stat().st_mtime < 20
                     service_alive = False
