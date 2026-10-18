@@ -34,6 +34,21 @@ class HudPreferenceTests(unittest.TestCase):
         self.assertEqual(lifecycle.clamp_window_rect(rect, (0, 0, 1600, 952)), rect)
 
 
+class HudCliShimTests(unittest.TestCase):
+    def test_wrapper_keeps_unicode_paths_in_environment_not_batch_source(self):
+        scratch = Path(__file__).resolve().parent.parent / '_scratch/test-runs'
+        scratch.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='HUD 中文-', dir=scratch) as temp:
+            root = Path(temp)
+            with patch.object(lifecycle, 'ROOT', root):
+                env = lifecycle.hud_environment()
+            wrapper = (root / '.local/hud-bin/codex.cmd').read_text(encoding='ascii')
+            self.assertNotIn('中文', wrapper)
+            self.assertIn("os.environ['CODEX_MONITOR_ROOT']", wrapper)
+            self.assertEqual(env['CODEX_MONITOR_ROOT'], str(root))
+            self.assertEqual(env['CODEX_MONITOR_PYTHON'], str(Path(sys.executable).with_name('python.exe')))
+
+
 @unittest.skipUnless(os.name == 'nt', 'Windows process identity guard')
 class StopGuardTests(unittest.TestCase):
     def check_stop(self, wrong_start):

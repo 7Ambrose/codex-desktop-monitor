@@ -82,12 +82,23 @@ def start_monitors():
 
 def hud_environment():
     # Upstream asks for codex.cmd; Desktop ships codex.exe outside the user PATH.
-    # Scope this adapter to the HUD child process, without changing system PATH.
+    # Keep the batch file ASCII-only: embedding ROOT directly breaks when the
+    # project directory contains Chinese characters and cmd.exe uses another
+    # code page. Pass paths through the Unicode process environment instead.
     shim = ROOT / '.local/hud-bin'
     shim.mkdir(parents=True, exist_ok=True)
-    (shim / 'codex.cmd').write_text('@echo off\n"' + str(Path(sys.executable).with_name('python.exe')) + '" "' + str(ROOT / 'codex_proxy.py') + '" %*\n', encoding='mbcs')
+    wrapper = (
+        '@echo off\r\n'
+        '"%CODEX_MONITOR_PYTHON%" -c "import os,runpy,sys;'
+        "p=os.path.join(os.environ['CODEX_MONITOR_ROOT'],'codex_proxy.py');"
+        "sys.path.insert(0,os.environ['CODEX_MONITOR_ROOT']);"
+        "sys.argv=[p]+sys.argv[1:];runpy.run_path(p,run_name='__main__')\" %*\r\n"
+    )
+    (shim / 'codex.cmd').write_text(wrapper, encoding='ascii')
     env = os.environ.copy()
     env['PATH'] = str(shim) + os.pathsep + env.get('PATH', '')
+    env['CODEX_MONITOR_ROOT'] = str(ROOT)
+    env['CODEX_MONITOR_PYTHON'] = str(Path(sys.executable).with_name('python.exe'))
     return env
 
 
