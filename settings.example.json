@@ -14,11 +14,11 @@
   "review_max_input_chars": 12000,
   "repeat_failure_count": 3,
   "quiet_warning_seconds": 180,
-  "stalled_notice_seconds": 600,
+  "stalled_notice_seconds": 180,
   "notify_completed": true,
   "notify_interrupted": true,
   "retention_days": 7,
   "auto_pause": true,
-  "codex_path": ""
+  "codex_path": "",
+  "monitor_all_conversations": true
 }
-

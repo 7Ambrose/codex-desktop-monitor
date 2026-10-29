@@ -96,18 +96,18 @@ def make_handler(engine, access_token, managed=None):
                 now = time.time()
                 for item in tasks:
                     item['quiet'] = item['state'] == 'running' and now - item['updated'] > engine.settings['quiet_warning_seconds']
-                    item['suspected_stall'] = item['state'] == 'running' and now-item['updated'] >= engine.settings.get('stalled_notice_seconds',600)
+                    item['suspected_stall'] = item['state'] == 'running' and now-item['updated'] >= engine.settings.get('stalled_notice_seconds',180)
                     # Summaries are enough for the overview; full prompts require an explicit detail request.
                     item.pop('prompt', None)
                     item.pop('last_message', None)
                 self.reply(200, {'tasks': tasks, 'notices': engine.notices(), 'service_error': engine.service_error,
                                  'managed_tasks': managed.overview() if managed else [], 'managed_available':managed is not None,
-                                 'stalled_notice_seconds': engine.settings.get('stalled_notice_seconds',600), 'uptime': now - engine.started,
+                                 'stalled_notice_seconds': engine.settings.get('stalled_notice_seconds',180), 'uptime': now - engine.started,
                                  'process_cpu_seconds': time.process_time(), 'last_hook_at': engine.last_hook_at,
                                  'control_mode': 'checkpoint', 'hard_interrupt_available': False,
                                  'review_enabled': engine.settings['review_enabled'], 'review_queue': engine.review_queue.qsize(),
                                  'review_mode': engine.settings.get('review_mode','economy'), 'review_model': engine.settings['review_model'],
-                                 'enabled_roots': engine.settings['enabled_roots']})
+                                 'enabled_roots': engine.settings['enabled_roots'], 'monitor_all_conversations': engine.settings.get('monitor_all_conversations', True)})
             elif url.path == '/api/task':
                 sid = parse_qs(url.query).get('id', [''])[0]
                 task = engine.store.task(sid)

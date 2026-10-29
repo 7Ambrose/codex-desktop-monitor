@@ -100,8 +100,8 @@ async function refresh() {
   try {
     const data=await api('/api/state');
     renderManaged(data);
-    $('capability').textContent='自动提醒：连续 3 次明确报错，或约 '+Math.round(data.stalled_notice_seconds/60)+' 分钟没进展。无需逐个复核；“检查结果质量”会额外使用 GPT。停止、继续现有桌面对话，请点“打开原聊天”在那里操作。';
-    $('connection').textContent=data.last_hook_at?'已收到任务事件':'服务在线 · 等待任务接入';$('connection').className='live ok';
+    $('capability').textContent=(data.monitor_all_conversations?'自动监控所有工作目录下的新桌面对话，无需逐个挂 Hook。':'仅监控所选工作目录。')+'疑似停滞提醒：约 '+Math.round(data.stalled_notice_seconds/60)+' 分钟没有新事件；提醒不会自动停止对话。停止或继续请点“打开原聊天”。';
+    $('connection').textContent=data.monitor_all_conversations?(data.last_hook_at?'全局对话监控已启用 · 已收到事件':'全局对话监控已启用 · 等待新事件'):(data.last_hook_at?'已收到任务事件':'服务在线 · 等待任务接入');$('connection').className='live ok';
     $('active').textContent=data.tasks.filter(t=>['running','observing'].includes(t.state)).length;
     $('attention').textContent=data.tasks.filter(t=>t.pause_reason).length+(data.notices||[]).filter(n=>!n.acknowledged&&['quiet','failures','connection','managed_error','approval'].includes(n.kind)).length;
     const notices=data.notices||[];$('notice-section').hidden=!notices.length;

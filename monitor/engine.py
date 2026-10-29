@@ -73,7 +73,7 @@ class Engine:
 
     def check_health(self, now=None):
         now = time.time() if now is None else now
-        threshold = self.settings.get('stalled_notice_seconds', 600)
+        threshold = self.settings.get('stalled_notice_seconds', 180)
         for task in self.store.tasks():
             if task['state'] == 'running' and now - task['updated'] >= threshold:
                 self.notice(task, 'quiet', f"疑似停滞：至少 {int(threshold/60)} 分钟没有新事件。可能仍在推理或执行长命令，请打开聊天确认。", str(int(task['updated'])))
@@ -95,7 +95,8 @@ class Engine:
             return {"ignored": True}
         cwd = event.get("cwd", "")
         roots = self.settings.get("enabled_roots", [])
-        if not cwd or not any(within(cwd, root) for root in roots):
+        monitor_all = self.settings.get("monitor_all_conversations", True)
+        if not cwd or (not monitor_all and not any(within(cwd, root) for root in roots)):
             return {"ignored": True}
         if within(cwd, self.local_dir) or os.environ.get("CODEX_MONITOR_REVIEWER") == "1":
             return {"ignored": True}
