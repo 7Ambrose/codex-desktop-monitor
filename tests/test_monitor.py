@@ -99,8 +99,14 @@ class EngineTests(EngineFixture):
 
     def test_ignored_paths_and_threads(self):
         self.assertTrue(self.event(sid='excluded')['ignored'])
+        self.settings['monitor_all_conversations'] = False
         self.assertTrue(self.event(cwd=str(self.root / 'outside'))['ignored'])
         self.assertEqual(self.store.tasks(), [])
+
+    def test_monitor_all_conversations_accepts_outside_roots(self):
+        self.settings['monitor_all_conversations'] = True
+        self.assertNotIn('ignored', self.event(cwd=str(self.root / 'outside')))
+        self.assertEqual([task['id'] for task in self.store.tasks()], ['task1'])
 
     def test_pause_is_scoped_and_not_claimed_as_interrupted(self):
         self.event()
